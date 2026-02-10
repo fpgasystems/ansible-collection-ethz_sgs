@@ -1,0 +1,7 @@
+---
+
+maintenance_lock_start_time: ""
+maintenance_lock_stop_time: ""
+
+maintenance_lock_delay: 60
+maintenance_lock_message: ""

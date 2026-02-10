@@ -1,0 +1,10 @@
+[Unit]
+Description=Run maintenance lockdown at scheduled time
+
+[Timer]
+OnCalendar={{ maintenance_lock_start_time }}
+Persistent=true
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

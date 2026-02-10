@@ -1,0 +1,41 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "This script must be run as root" >&2
+  exit 1
+fi
+
+MSG="{{ maintenance_lock_message }}"
+
+cat << EOF > /etc/nologin
+*****************************************************
+* Currently no access allowed due to maintenance    *
+*****************************************************
+* From: {{ maintenance_lock_start_time }}    until: {{ maintenance_lock_stop_time }} *
+*****************************************************
+
+$MSG
+EOF
+
+cat << EOF  | wall -n
+*****************************************************
+* SAVE YOUR WORK AND LOGOUT!                        *
+*****************************************************
+* System goes into maintenance mode in {{ maintenance_lock_delay }} seconds   *
+*****************************************************
+
+$MSG
+EOF
+
+# Give users time to see the message
+sleep {{ maintenance_lock_delay }}
+
+# Kick out non-root users
+for u in $(who | awk '{print $1}' | sort -u); do
+  case "$u" in
+    root|ladmin) continue ;;
+  esac
+  pkill -KILL -u "$u" || true
+done
+

@@ -1,0 +1,8 @@
+[Unit]
+Description=Maintenance lockdown (nologin + kick users)
+After=network.target
+ConditionPathExists=!/etc/nologin
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/maintenance-lockdown.sh

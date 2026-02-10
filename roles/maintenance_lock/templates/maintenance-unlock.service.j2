@@ -1,0 +1,8 @@
+[Unit]
+Description=End maintenance (re-enable logins)
+ConditionPathExists=/etc/nologin
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/bin/rm -f /etc/nologin && echo "Maintenance ended, logins enabled"'
+

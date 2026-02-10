@@ -1,0 +1,10 @@
+[Unit]
+Description=Run maintenance unlock at scheduled time
+
+[Timer]
+OnCalendar={{ maintenance_lock_stop_time }}
+Persistent=true
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

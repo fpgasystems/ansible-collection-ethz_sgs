@@ -1,0 +1,35 @@
+---
+
+- name: Ensure ladmin_password is set and not blank
+  ansible.builtin.assert:
+    that:
+      - ladmin_password is defined
+      - ladmin_password | trim | length > 0
+    fail_msg: "ladmin_password must be set and not blank"
+
+- name: Create local ladmin user
+  ansible.builtin.user:
+    name: ladmin
+    comment: Local Administrator user
+    shell: /bin/bash
+    uid: 1111
+    password: "{{ ladmin_password | password_hash('sha512', ladmin_hashing_salt) }}"
+
+# NOTE: ladmin is not added to sudo, as the sudo group is managed by ISG Ansible
+- name: Set permissive rights without adding to sudo group
+  ansible.builtin.copy:
+    content: |
+      ladmin ALL=(ALL) NOPASSWD:ALL
+    dest: /etc/sudoers.d/ladmin
+    owner: root
+    group: root
+    mode: 0744
+
+- name: Allow ladmin user during nologin
+  ansible.builtin.blockinfile:
+    path: /etc/pam.d/sshd
+    marker: "# {mark} LADMIN NOLOGIN EXCEPTION"
+    insertbefore: 'pam_nologin.so'
+    block: |
+      auth    [success=1 default=ignore] pam_succeed_if.so user = ladmin
+      account [success=1 default=ignore] pam_succeed_if.so user = ladmin

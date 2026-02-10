@@ -6,7 +6,7 @@ Linux local administrator account as an alternative to root for machines that ar
 Requirements
 ------------
 
-None.
+You need the python module `passlib` to be installed on the node that exectues ansible (controller node).
 
 Role Variables
 --------------

@@ -1,0 +1,68 @@
+---
+
+- name: Install driver
+  ansible.builtin.include_tasks: driver.yml
+
+- name: Get Cuda versions ready for apt
+  ansible.builtin.set_fact:
+    cuda_apt_friendly_versions: "{{ cuda_versions | map('regex_replace', '\\.', '-') | list }}"
+
+- name: Check which cuda versions are installed
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Purge undefined CUDA versions
+  ansible.builtin.apt:
+    name: "cuda-toolkit-{{ item }}"
+    state: absent
+    purge: true
+  loop: "{{ ansible_facts.packages.keys()
+            | select('match', '^cuda-toolkit-[0-9]+-[0-9]+$')
+            | map('regex_replace', '^cuda-toolkit-', '') | list }}"
+  when: item not in cuda_apt_friendly_versions
+  notify: Reboot
+
+- name: Install desired CUDA versions
+  ansible.builtin.apt:
+    name: "cuda-toolkit-{{ item }}"
+    state: present
+  loop: "{{ cuda_apt_friendly_versions }}"
+  notify: Reboot
+
+- name: Reboot first if the cuda toolkit setup changed
+  ansible.builtin.meta: flush_handlers
+
+- name: Purge undefined nvidia-gds versions
+  ansible.builtin.apt:
+    name: "nvidia-gds-{{ item }}"
+    state: absent
+    purge: true
+  loop: "{{ ansible_facts.packages.keys()
+            | select('match', '^nvidia-gds-[0-9]+-[0-9]+$') |
+            map('regex_replace', '^nvidia-gds-', '') | list }}"
+  when: item not in cuda_apt_friendly_versions
+  notify: Reboot
+
+- name: Install desired nvidia-gds versions
+  ansible.builtin.apt:
+    name: "nvidia-gds-{{ item }}"
+    state: present
+  loop: "{{ cuda_apt_friendly_versions }}"
+  notify: Reboot
+
+- name: Ensure CUDA modulefile directory exists
+  ansible.builtin.file:
+    path: "/usr/share/modules/modulefiles/cuda/"
+    state: directory
+    mode: '0755'
+
+- name: Remove undesired CUDA modulefiles
+  ansible.builtin.debug:
+    msg: "TODO"
+
+- name: Generate CUDA modulefiles
+  ansible.builtin.template:
+    src: cuda.module.j2
+    dest: "/usr/share/modules/modulefiles/cuda/{{ item }}"
+    mode: '0755'
+  loop: "{{ cuda_versions }}"

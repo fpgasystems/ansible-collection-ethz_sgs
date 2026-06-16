@@ -1,0 +1,96 @@
+---
+
+# 1 Ensure linux-headers and linux dev packages are installed for the exact kernel $(uname -r)
+# 2 Setup cuda keyring package
+# 3 Install pinning repo
+# 4 Install open or proprietary drivers
+# 5 Reboot
+
+- name: Ensure Linux headers and dev packages are present
+  ansible.builtin.apt:
+    name:
+      - "dkms"
+      - "linux-headers-generic"
+      - "build-essential"
+    state: present
+
+- name: Check if cuda-keyring is installed
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Install cuda-keyring package if not installed
+  when: "'cuda-keyring' not in ansible_facts.packages"
+  block:
+    - name: Download NVIDIA CUDA keyring package (only if not installed)
+      ansible.builtin.get_url:
+        url: >-
+          https://developer.download.nvidia.com/compute/cuda/repos/{{
+            distro }}/x86_64/cuda-keyring_{{ cuda_driver_cuda_keyring_version }}_all.deb
+        dest: "/tmp/cuda-keyring_{{ cuda_driver_cuda_keyring_version }}_all.deb"
+        mode: '0644'
+      vars:
+        distro: >-
+          {{ ansible_distribution | lower }}{{
+            ansible_distribution_version.split('.')[0] }}{{
+              ansible_distribution_version.split('.')[1] }}
+
+
+    - name: Install NVIDIA CUDA keyring
+      ansible.builtin.apt:
+        deb: "/tmp/cuda-keyring_{{ cuda_driver_cuda_keyring_version }}_all.deb"
+        state: present
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Remove temporary cuda-keyring deb
+      ansible.builtin.file:
+        path: "/tmp/cuda-keyring_{{ cuda_driver_cuda_keyring_version }}_all.deb"
+        state: absent
+
+- name: Install pinning repostory
+  vars:
+    desired_pinning_package: "nvidia-driver-pinning-{{ cuda_driver_version }}"
+  block:
+    - name: Purge conflicting NVIDIA pinning packages
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: absent
+        purge: true
+      loop: "{{ ansible_facts.packages.keys()
+                | select('match', '^nvidia-driver-pinning-') | list }}"
+      when: item != desired_pinning_package
+      notify: Reboot
+
+    - name: Install desired NVIDIA driver pinning package
+      ansible.builtin.apt:
+        name: "{{ desired_pinning_package }}"
+        state: present
+        force: true
+      notify: Reboot
+
+- name: Install driver
+  block:
+    - name: Remove other nvidia driver
+      ansible.builtin.apt:
+        name: "{{ 'nvidia-open' if cuda_driver_use_proprietary else 'cuda-drivers' }}"
+        state: absent
+      notify: Reboot
+
+    - name: Install requested driver
+      ansible.builtin.apt:
+        name: "{% if cuda_driver_use_proprietary
+          %}cuda-drivers={{ cuda_driver_version }}.*{%
+            else
+          %}nvidia-open={{ cuda_driver_version }}.*{% endif %}"
+        state: present
+        allow_downgrade: true
+      notify: Reboot
+
+    - name: Autoremove packages of other version
+      ansible.builtin.apt:
+        autoremove: true
+
+- name: Reboot first if the driver setup changed
+  ansible.builtin.meta: flush_handlers

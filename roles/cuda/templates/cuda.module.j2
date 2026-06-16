@@ -1,0 +1,18 @@
+#%Module1.0
+##
+## CUDA toolkit {{ item }}
+##
+
+proc ModulesHelp { } {
+    puts stderr "CUDA Toolkit {{ item }}"
+}
+
+module-whatis "CUDA Toolkit {{ item }}"
+
+set root /usr/local/cuda-{{ item }}
+
+prepend-path PATH            $root/bin
+prepend-path LD_LIBRARY_PATH $root/lib64
+prepend-path MANPATH         $root/doc/man
+setenv CUDA_HOME             $root
+
